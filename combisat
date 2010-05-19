@@ -7,7 +7,7 @@ class CNFFormula:
         self.clauses = []
         self.varCount = varCount
 
-def parseDIMACS(inputFile):
+def parseDIMACSFormula(inputFile):
     varCount = 0
     clauseCount = 0
     
@@ -58,7 +58,7 @@ def parseDIMACS(inputFile):
             
             assert elem <= varCount, "Gaps in the variable numbering not allowed"
             
-            crtClause.append((elem, Negate))
+            crtClause.append((elem, negate))
             
     assert len(crtClause) == 0, "Unterminated clause encountered"
     assert len(formula.clauses) == clauseCount, "Clause count inconsistency"
@@ -67,7 +67,7 @@ def parseDIMACS(inputFile):
     
     
 
-def emitDIMACS(outputFile, formula, comments=None):
+def emitDIMACSFormula(outputFile, formula, comments=None):
     if comments is not None:
         for comment in comments:
             outputFile.write("c %s\n" % comment)
@@ -85,9 +85,9 @@ def emitDIMACS(outputFile, formula, comments=None):
         outputFile.write("0\n")
 
 def main():
-    formula = parseDIMACS(sys.stdin)
+    formula = parseDIMACSFormula(sys.stdin)
     
-    emitDIMACS(sys.stdout, formula, "Hey there")
+    emitDIMACSFormula(sys.stdout, formula, ["Hey there"])
 
 
 if __name__ == "__main__":
