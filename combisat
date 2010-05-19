@@ -1,2 +1,77 @@
 #!/usr/bin/python
 
+class CNFFormula:
+    def __init__(self, varCount = 0):
+        self.clauses = []
+        self.varCount = varCount
+
+def parseDIMACS(inputFile):
+    varCount = 0
+    clauseCount = 0
+    
+    # Parsing the header
+     
+    while True:
+        crtLine = inputFile.readline()
+        crtLine = crtLine.strip() # Remove the surrounding whitespace
+        
+        lineTokens = crtLine.split(None, 1)
+        assert len(lineTokens) == 2, "Invalid DIMACS header format"
+        assert len(lineTokens[0]) == 1, "Invalid DIMACS header format"
+        
+        if lineTokens[0] == "c":
+            pass # Ignore the comments, for now
+        elif lineTokens[0] == "p":
+            formatTokens = lineTokens[1].split()
+            assert len(formatTokens) == 3, "Invalid formula format specifications"
+            assert formatTokens[0] == "cnf", "Invalid formula format - cnf is requested"
+            
+            varCount = int(formatTokens[1])
+            clauseCount = int(formatTokens[2])
+            
+            break
+        else:
+            pass #Ignore any additional header
+    
+    # Read up until the end of the file, and parse the contents
+    
+    clauseText = inputFile.read()
+    clauseTokens = clauseText.split()
+    clauseData = map(int, clauseTokens)
+    
+    formula = CNFFormula(varCount)
+    
+    crtClause = []
+    for elem in clauseData:
+        if elem == 0:
+            assert len(crtClause) > 0, "Only non-empty clauses allowed"
+            
+            formula.clauses.append(crtClause)
+            crtClause = []
+        else:
+            negate = False
+            if elem < 0:
+                negate = True
+                elem = -elem
+            
+            assert elem <= varCount, "Gaps in the variable numbering not allowed"
+            
+            crtClause.append((elem, Negate))
+            
+    assert len(crtClause) == 0, "Unterminated clause encountered"
+    
+    return formula
+    
+    
+
+def emitDIMACS(outputFile, comments=None):
+    if comments is not None:
+        pass
+    pass
+
+def main():
+    pass
+
+
+if __name__ == "__main__":
+    main()
