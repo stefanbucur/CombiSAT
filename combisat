@@ -1,5 +1,7 @@
 #!/usr/bin/python
 
+from __future__ import with_statement
+
 import sys
 import optparse
 import threading
@@ -232,7 +234,7 @@ class PortfolioSolver(SATSolver):
 def main():
     # Read the command line arguments
     parser = OptionParser()
-    parser.add_option("-s", "--solver", action="append", dest="solvers")
+    parser.add_option("-s", "--solver", action="store", dest="solver")
     
     (options, args) = parser.parse_args()
     
@@ -240,9 +242,16 @@ def main():
         parser.print_usage(sys.stderr)
         exit(1)
         
-    formula = parseDIMACSFormula(sys.stdin)
+    formula = None
+        
+    with open(args[0]) as inputFile:
+        formula = parseDIMACSFormula(inputFile)
     
-    emitDIMACSFormula(sys.stdout, formula, ["Hey there"])
+    solver = ExternalSolver(options.solver)
+    
+    solution = solver.solve(formula)
+    
+    emitDIMACSSolution(sys.stdout, solution)
 
 
 if __name__ == "__main__":
