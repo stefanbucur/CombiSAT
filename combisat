@@ -11,9 +11,7 @@ import shlex
 from optparse import OptionParser
 from StringIO import StringIO
 from threading import Thread
-
-# Default portfolio polling interval
-PORTFOLIO_POLL_INTERVAL = 0.01
+from threading import Semaphore
 
 # The number of assignments per "v" group in the DIMACS output
 DIMACS_SOLUTION_WRAP = 10
@@ -196,6 +194,8 @@ class ExternalSolver(SATSolver):
         
         (outdata, errdata) = self.proc.communicate(dimacsFormula)
         
+        self.proc = None
+        
         solFile = StringIO(outdata)
         
         solution = parseDIMACSSolution(solFile)
@@ -205,28 +205,52 @@ class ExternalSolver(SATSolver):
     def abort(self):
         if self.proc is not None:
             self.proc.terminate()
+            
+class _PortfolioThread(Thread):
+    def __init__(self, solver, formula, sem):
+        Thread.__init__(self)
+        
+        self.solution = None
+        self.solver = solver
+        self.formula = formula
+        self.sem = sem
+        
+    def run(self):
+        self.solution = self.solver.solve(self.formula)
+        self.sem.release()
     
 class PortfolioSolver(SATSolver):
     """A strategy portfolio SAT solver"""
     def __init__(self, solvers):
         self.solvers = solvers
         
-    def _run_solver(self, solver, dimacsFormula):
-        print "Running solver"
-        
     def solve(self, formula):   
         solverThreads = []
+        solution = None
         
-        for solver in solvers:
-            threadRun = lambda : _run_solver(self, solver, dimacsFormula)
-            sThread = Thread(target = threadRun)
+        sem = Semaphore(0)
+        
+        for solver in self.solvers:
+            sThread = _PortfolioThread(solver, formula, sem)
             solverThreads.append(sThread)
             
             sThread.start()
         
+        # Wait for at least one thread to finish
+        sem.acquire()
             
         for sThread in solverThreads:
+            if sThread.solution is not None:
+                solution = sThread.solution
+            else:
+                sThread.solver.abort()
+                
+        assert solution is not None, "Solver returned with invalid solution"
+                
+        for sThread in solverThreads:
             sThread.join()
+            
+        return solution
             
     def abort(self):
         pass
@@ -234,7 +258,7 @@ class PortfolioSolver(SATSolver):
 def main():
     # Read the command line arguments
     parser = OptionParser()
-    parser.add_option("-s", "--solver", action="store", dest="solver")
+    parser.add_option("-s", "--solver", action="append", dest="solver_paths")
     
     (options, args) = parser.parse_args()
     
@@ -242,14 +266,23 @@ def main():
         parser.print_usage(sys.stderr)
         exit(1)
         
+    if options.solver_paths is None:
+        sys.stderr.write("You need to specify at least one solver.\n")
+        exit(1)
+        
     formula = None
         
     with open(args[0]) as inputFile:
         formula = parseDIMACSFormula(inputFile)
+        
+    solvers = []
     
-    solver = ExternalSolver(options.solver)
+    for path in options.solver_paths:
+        solvers.append(ExternalSolver(path))
+        
+    portfolio = PortfolioSolver(solvers)
     
-    solution = solver.solve(formula)
+    solution = portfolio.solve(formula)
     
     emitDIMACSSolution(sys.stdout, solution)
 
