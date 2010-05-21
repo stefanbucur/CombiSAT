@@ -7,6 +7,8 @@ import optparse
 import threading
 import subprocess
 import shlex
+import fcntl
+import errno
 
 from optparse import OptionParser
 from StringIO import StringIO
@@ -180,11 +182,6 @@ class SATSolver:
 class ExternalSolver(SATSolver):
     def __init__(self, path):
         self.path = path
-        self.proc = None
-        
-    def solve(self, formula):
-        # Compose the formula to send
-        dimacsFormula = getDIMACSFormula(formula)
         
         args = shlex.split(self.path)
         self.proc = subprocess.Popen(args,
@@ -192,19 +189,34 @@ class ExternalSolver(SATSolver):
                                      stdout=subprocess.PIPE,
                                      stderr=subprocess.PIPE)
         
-        (outdata, errdata) = self.proc.communicate(dimacsFormula)
+        for file in [self.proc.stdin, self.proc.stdout, self.proc.stderr]:
+            fcntl.fcntl(file.fileno(), fcntl.F_SETFD, fcntl.FD_CLOEXEC)
         
-        self.proc = None
+    def solve(self, formula):
+        # Compose the formula to send
+        dimacsFormula = getDIMACSFormula(formula)
         
-        solFile = StringIO(outdata)
+        try:
+            (outdata, errdata) = self.proc.communicate(dimacsFormula)
+        except OSError as error:
+            if error.errno == errno.EPIPE:
+                pass
+            else:
+                raise
         
-        solution = parseDIMACSSolution(solFile)
-        
-        return solution
+        if self.proc.returncode >= 0 and len(outdata) > 0:
+            solFile = StringIO(outdata)
+            solution = parseDIMACSSolution(solFile)
+            return solution
         
     def abort(self):
-        if self.proc is not None:
-            self.proc.terminate()
+        try:
+            self.proc.kill()
+        except OSError as error:
+            if error.errno == errno.ESRCH:
+                pass
+            else:
+                raise
             
 class _PortfolioThread(Thread):
     def __init__(self, solver, formula, sem):
@@ -240,10 +252,11 @@ class PortfolioSolver(SATSolver):
         sem.acquire()
             
         for sThread in solverThreads:
-            if sThread.solution is not None:
-                solution = sThread.solution
-            else:
-                sThread.solver.abort()
+            if solution is None:
+                if sThread.solution is not None:
+                    solution = sThread.solution
+            
+            sThread.solver.abort()
                 
         assert solution is not None, "Solver returned with invalid solution"
                 
