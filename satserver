@@ -3,6 +3,7 @@
 import SocketServer
 import optparse
 import sys
+import array
 
 LOCAL_ADDRESS = "localhost"
 LOCAL_PORT = 13337
@@ -17,10 +18,63 @@ from optparse import OptionParser
 _solverPaths = []
 
 def parseBinaryFormula(inputFile):
-    pass
+    # Read the number of variables and clauses
+    hdrArray = array.array('I')
+    hdrArray.fromFile(inputFile, 2)
+    
+    hdr = hdrArray.tolist()
+    
+    varCount = hdr[0]
+    clauseCount = hdr[1]
+    
+    formula = CNFFormula(varCount)
+    
+    # Read each clause
+    i = 0
+    while i < clauseCount:
+        litArray = array.array('i')
+        litArray.fromFile(inputFile, 1)
+        
+        # The first element indicates the number of literals in the clause
+        litCount = litArray.tolist()[0]
+        
+        litArray.fromFile(inputFile, litCount)
+        
+        clause = []
+        for lit in litArray.tolist()[1:]:
+            assert lit != 0
+            
+            if lit > 0:
+                clause.append((lit, False))
+            else:
+                clause.append((-lit, True))
+                
+        formula.clauses.append(clause)
+        
+        i = i + 1
+        
+    return formula
 
 def emitBinarySolution(outputFile, solution):
-    pass
+    solArray = array.array('i')
+    
+    if len(solution) == 0:
+        solArray.append(0)
+        solArray.tofile(outputFile)
+        return
+    
+    solArray.append(1)
+    
+    for elem in solution:
+        value = elem[0]
+        if elem[1]:
+            value = -value
+            
+        solArray.append(value)
+        
+    solArray.tofile(outputFile)
+            
+        
 
 def createPortfolioSolver():
     solvers = []
