@@ -64,6 +64,7 @@ def emitBinarySolution(outputFile, solution):
         return
     
     solArray.append(1)
+    solArray.append(len(solution))
     
     for elem in solution:
         value = elem[0]
