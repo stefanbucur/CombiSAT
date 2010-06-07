@@ -69,7 +69,7 @@ class PortfolioSolver(SATSolver):
     def __init__(self, solvers):
         self.solvers = solvers
         
-    def solve(self, formula):   
+    def _solve_mt(self, formula):
         solverThreads = []
         solution = None
         
@@ -97,6 +97,20 @@ class PortfolioSolver(SATSolver):
             sThread.join()
             
         return solution
-            
+    
+    def _solve_st(self, formula):
+        assert len(self.solvers) == 1
+        solver = self.solvers[0]
+        
+        solution = solver.solve(formula)
+        
+        return solution
+        
+    def solve(self, formula):
+        if len(self.solvers) > 1:
+            return self._solve_mt(formula)
+        else:
+            return self._solve_st(formula)
+        
     def abort(self):
         pass
