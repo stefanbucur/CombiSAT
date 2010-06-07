@@ -20,7 +20,7 @@ _solverPaths = []
 def parseBinaryFormula(inputFile):
     # Read the number of variables and clauses
     hdrArray = array.array('I')
-    hdrArray.fromFile(inputFile, 2)
+    hdrArray.fromstring(inputFile.read(4*2))
     
     hdr = hdrArray.tolist()
     
@@ -33,12 +33,12 @@ def parseBinaryFormula(inputFile):
     i = 0
     while i < clauseCount:
         litArray = array.array('i')
-        litArray.fromFile(inputFile, 1)
+        litArray.fromstring(inputFile.read(4*1))
         
         # The first element indicates the number of literals in the clause
         litCount = litArray.tolist()[0]
         
-        litArray.fromFile(inputFile, litCount)
+        litArray.fromstring(inputFile.read(4*litCount))
         
         clause = []
         for lit in litArray.tolist()[1:]:
@@ -60,7 +60,7 @@ def emitBinarySolution(outputFile, solution):
     
     if len(solution) == 0:
         solArray.append(0)
-        solArray.tofile(outputFile)
+        outputFile.write(solArray.tostring())
         return
     
     solArray.append(1)
@@ -73,7 +73,7 @@ def emitBinarySolution(outputFile, solution):
             
         solArray.append(value)
         
-    solArray.tofile(outputFile)
+    outputFile.write(solArray.tostring())
             
         
 
