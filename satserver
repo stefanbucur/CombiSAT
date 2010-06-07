@@ -90,9 +90,16 @@ def createPortfolioSolver():
 class ServerHandler(SocketServer.StreamRequestHandler):
     def handle(self):
         formula = parseBinaryFormula(self.rfile)
+        
+        print "Received formula with", formula.varCount, "variables and", len(formula.clauses), "clauses: ",
         solver = createPortfolioSolver()
         
         solution = solver.solve(formula)
+        
+        if len(solution) > 0:
+            print "SAT"
+        else:
+            print "UNSAT"
         
         emitBinarySolution(self.wfile, solution)
         
