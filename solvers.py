@@ -1,12 +1,14 @@
 import shlex
 import subprocess
 import errno
+import time
 
 from threading import Thread
 from threading import Semaphore
 
 from common import SATSolver
 from common import CNFFormula
+from common import SolverBenchmarkData
 
 from dimacs import getDIMACSFormula
 from dimacs import parseDIMACSSolution
@@ -25,9 +27,13 @@ class ExternalSolver(SATSolver):
                                      stderr=subprocess.PIPE,
                                      close_fds=True)
         
+        self._benchmark = None
+        
     def solve(self, formula):
         # Compose the formula to send
         dimacsFormula = getDIMACSFormula(formula)
+        
+        startTime = time.time()
         
         try:
             (outdata, errdata) = self.proc.communicate(dimacsFormula)
@@ -38,9 +44,19 @@ class ExternalSolver(SATSolver):
                 raise
         
         if self.proc.returncode >= 0 and len(outdata) > 0:
+            endTime = time.time()
+            
             solFile = StringIO(outdata)
             solution = parseDIMACSSolution(solFile)
+            
+            self._benchmark = SolverBenchmarkData(varCount = formula.varCount,
+                                                  clauseCount = len(formula.clauses),
+                                                  sat = len(solution) > 0,
+                                                  time = endTime - startTime)
             return solution
+        
+    def getBenchmark(self):
+        return self._benchmark
         
     def abort(self):
         try:
@@ -66,8 +82,14 @@ class _PortfolioThread(Thread):
     
 class PortfolioSolver(SATSolver):
     """A strategy portfolio SAT solver"""
-    def __init__(self, solvers):
+    def __init__(self, solvers, benchMode=False):
         self.solvers = solvers
+        self.benchMode = benchMode
+        
+        if self.benchMode:
+            self._benchmark = []
+        else:
+            self._benchmark = None
         
     def _solve_mt(self, formula):
         solverThreads = []
@@ -85,16 +107,21 @@ class PortfolioSolver(SATSolver):
         sem.acquire()
             
         for sThread in solverThreads:
-            if solution is None:
-                if sThread.solution is not None:
-                    solution = sThread.solution
+            if solution is None and sThread.solution is not None:
+                solution = sThread.solution
+                if not self.benchMode:
+                    self._benchmark = sThread.solver.getBenchmark()
             
-            sThread.solver.abort()
-                
-        assert solution is not None, "Solver returned with invalid solution"
+            if not self.benchMode:
+                sThread.solver.abort()
                 
         for sThread in solverThreads:
             sThread.join()
+            
+        assert solution is not None, "Solver returned with invalid solution"
+        
+        if self.benchMode:
+            self._benchmark = [sThread.solver.getBenchmark() for sThread in solverThreads]
             
         return solution
     
@@ -104,6 +131,11 @@ class PortfolioSolver(SATSolver):
         
         solution = solver.solve(formula)
         
+        if self.benchMode:
+            self._benchmark = [solver.getBenchmark()]
+        else:
+            self._benchmark = solver.getBenchmark()
+            
         return solution
         
     def solve(self, formula):
@@ -114,3 +146,6 @@ class PortfolioSolver(SATSolver):
         
     def abort(self):
         pass
+    
+    def getBenchmark(self):
+        return self._benchmark

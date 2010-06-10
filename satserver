@@ -17,6 +17,12 @@ from optparse import OptionParser
 
 _solverPaths = []
 
+def printBenchmark(benchmark, outputFile = sys.stdout):
+    outputFile.write("vars: %d clauses: %d => %s [%.3fs]\n" % (benchmark.varCount,
+                                                             benchmark.clauseCount,
+                                                             ("UNSAT", "SAT")[benchmark.sat],
+                                                             benchmark.time))
+
 def parseBinaryFormula(inputFile):
     # Read the number of variables and clauses
     hdrArray = array.array('I')
@@ -83,7 +89,7 @@ def createPortfolioSolver():
     for path in _solverPaths:
         solvers.append(ExternalSolver(path))
         
-    portfolio = PortfolioSolver(solvers)
+    portfolio = PortfolioSolver(solvers, _benchMode)
     
     return portfolio
 
@@ -107,6 +113,7 @@ class ServerHandler(SocketServer.StreamRequestHandler):
 def main():
     parser = OptionParser()
     parser.add_option("-s", "--solver", action="append", dest="solver_paths")
+    parser.add_option("-b", "--benchmark", action="store_true", dest="benchmark", default=False)
     
     (options, args) = parser.parse_args()
     
@@ -116,6 +123,9 @@ def main():
         
     global _solverPaths
     _solverPaths = options.solver_paths
+    
+    global _benchMode
+    _benchMode = options.benchmark
     
     server = SocketServer.TCPServer((LOCAL_ADDRESS, LOCAL_PORT), ServerHandler)
     
