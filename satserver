@@ -119,11 +119,11 @@ class ServerHandler(SocketServer.StreamRequestHandler):
             
             for benchmark in solver.getBenchmark():
                 printBenchmark(benchmark)
+                
+            emitBinarySolution(self.wfile, solution, solver.getBenchmark())
         else:
             printBenchmark(solver.getBenchmark())    
-        
-        emitBinarySolution(self.wfile, solution)
-        
+            emitBinarySolution(self.wfile, solution, [solver.getBenchmark()])
 
 def main():
     parser = OptionParser()
