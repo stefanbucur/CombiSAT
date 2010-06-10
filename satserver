@@ -4,6 +4,7 @@ import SocketServer
 import optparse
 import sys
 import array
+import struct
 
 LOCAL_ADDRESS = "localhost"
 LOCAL_PORT = 13337
@@ -22,6 +23,12 @@ def printBenchmark(benchmark, outputFile = sys.stdout):
                                                              benchmark.clauseCount,
                                                              ("UNSAT", "SAT")[benchmark.sat],
                                                              benchmark.time))
+    
+def emitBinaryBenchmark(benchmark, outputFile):
+    repr = struct.pack("IIbd", benchmark.varCount, benchmark.clauseCount,
+                       benchmark.sat, benchmark.time)
+    
+    outputFile.write(repr)
 
 def parseBinaryFormula(inputFile):
     # Read the number of variables and clauses
@@ -61,7 +68,7 @@ def parseBinaryFormula(inputFile):
         
     return formula
 
-def emitBinarySolution(outputFile, solution):
+def emitBinarySolution(outputFile, solution, benchmark = None):
     solArray = array.array('i')
     
     if len(solution) == 0:
@@ -79,8 +86,14 @@ def emitBinarySolution(outputFile, solution):
             
         solArray.append(value)
         
+    if benchmark is not None:
+        solArray.append(len(benchmark))
+        
     outputFile.write(solArray.tostring())
             
+    if benchmark is not None:
+        for b in benchmark:
+            emitBinaryBenchmark(b, outputFile)
         
 
 def createPortfolioSolver():
@@ -97,15 +110,17 @@ class ServerHandler(SocketServer.StreamRequestHandler):
     def handle(self):
         formula = parseBinaryFormula(self.rfile)
         
-        print "Received formula with", formula.varCount, "variables and", len(formula.clauses), "clauses: ",
         solver = createPortfolioSolver()
         
         solution = solver.solve(formula)
         
-        if len(solution) > 0:
-            print "SAT"
+        if _benchMode:
+            print 80*"="
+            
+            for benchmark in solver.getBenchmark():
+                printBenchmark(benchmark)
         else:
-            print "UNSAT"
+            printBenchmark(solver.getBenchmark())    
         
         emitBinarySolution(self.wfile, solution)
         
