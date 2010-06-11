@@ -6,11 +6,16 @@ DIMACS_SOLUTION_WRAP = 10
 
 def parseDIMACSHeader(inputFile):
     crtLine = inputFile.readline()
+    
+    # Return a None header at EOF
+    if len(crtLine) == 0:
+        return (None, None)
+    
     crtLine = crtLine.strip() # Remove the surrounding whitespace
     
     # Return an empty header for blank lines
     if len(crtLine) == 0:
-        return (None, None)
+        return ("", None)
     
     lineTokens = crtLine.split(None, 1)
     assert len(lineTokens) == 2, "Invalid DIMACS header format"
@@ -39,7 +44,8 @@ def parseDIMACSFormula(inputFile):
             
             break
         else:
-            pass #Ignore any additional header
+            #Ignore any additional header, but don't accept EOF
+            assert hType is not None, "Invalid formula format" 
     
     # Read up until the end of the file, and parse the contents
     
@@ -73,29 +79,40 @@ def parseDIMACSFormula(inputFile):
 
 def parseDIMACSSolution(inputFile):
     solution = []
+    sat = None # We don't know yet
+    
     while True:
         (hType, hContents) = parseDIMACSHeader(inputFile)
         
         if hType == "s":
             if hContents == "UNSATISFIABLE":
-                assert len(solution) == 0, "Inconsistent results"
-                return solution
-            
-            assert hContents == "SATISFIABLE", "Invalid satisfiability solution"
+                sat = False
+            else:
+                assert hContents == "SATISFIABLE", "Invalid satisfiability solution"
+                sat = True
             
         elif hType == "v":
             dataValues = [int(tok) for tok in hContents.split()]
             
             for x in dataValues:
                 if x == 0:
-                    return solution
+                    pass
                 elif x > 0:
                     solution.append((x, False))
                 else:
                     solution.append((-x, True))
-        else:
-            pass # Just ignore
+        elif hType is None:
+            break
+        
+    # At this point the end of the response was reached, and we expect
+    # a clear answer
     
+    assert sat is not None, "Incomplete answer"
+    
+    if sat:
+        assert len(solution) > 0, "Inconsistent results"
+        
+    return solution
     
 
 def emitDIMACSFormula(outputFile, formula, comments=None):
