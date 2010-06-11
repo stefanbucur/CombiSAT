@@ -8,6 +8,10 @@ def parseDIMACSHeader(inputFile):
     crtLine = inputFile.readline()
     crtLine = crtLine.strip() # Remove the surrounding whitespace
     
+    # Return an empty header for blank lines
+    if len(crtLine) == 0:
+        return (None, None)
+    
     lineTokens = crtLine.split(None, 1)
     assert len(lineTokens) == 2, "Invalid DIMACS header format"
     assert len(lineTokens[0]) == 1, "Invalid DIMACS header format"
