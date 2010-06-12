@@ -73,18 +73,16 @@ def emitBinarySolution(outputFile, solution, benchmark = None):
     
     if len(solution) == 0:
         solArray.append(0)
-        outputFile.write(solArray.tostring())
-        return
-    
-    solArray.append(1)
-    solArray.append(len(solution))
-    
-    for elem in solution:
-        value = elem[0]
-        if elem[1]:
-            value = -value
-            
-        solArray.append(value)
+    else:
+        solArray.append(1)
+        solArray.append(len(solution))
+        
+        for elem in solution:
+            value = elem[0]
+            if elem[1]:
+                value = -value
+                
+            solArray.append(value)
         
     if benchmark is not None:
         solArray.append(len(benchmark))
