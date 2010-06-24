@@ -1,0 +1,10 @@
+There are two usage modes for CombiSAT:
+
+(1) Stand alone SAT solver:
+./combisat -s <solver1> -s <solver2> ... -s <solvern> <formula file>
+where <solverk> are paths to the executables of individual solvers (e.g. ./minisat, ./precosat, ./clasp) that support DIMACS input.
+
+(2) SAT formula server:
+./satserver -s <solver1> -s <solver2> .... [-b]
+
+In this case, the -b parameter specifies that the portfolio should run in batch mode, where all the solvers are waited for to finish, in order to evaluate their performace.
